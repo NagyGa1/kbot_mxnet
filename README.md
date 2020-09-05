@@ -53,3 +53,10 @@ sudo make uninstall
 cd kbot_mxnet
 ./gradlew clean test publishToMavenLocal --info
 ```
+
+## Run
+
+### Env vars
+`MXNET_SUBGRAPH_VERBOSE=0` switches off some annoying MXNet logging.
+
+`OMP_NUM_THREADS=1` better performance of smaller nets / single record inference.
