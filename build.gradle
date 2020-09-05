@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+group 'nagyga1'
+version '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty "java.library.path", file("${projectDir}/jni/cmake-build-release").absolutePath
+    environment "MXNET_SUBGRAPH_VERBOSE", "0"
+}
+
+compileJava {
+    options.compilerArgs << "-h" << "${projectDir}/jni/src".toString()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            pom {
+                licenses {
+                    license {
+                        name = 'GNU GENERAL PUBLIC LICENSE, Version 3'
+                        url = 'https://www.gnu.org/licenses/gpl-3.0.txt'
+                    }
+                }
+            }
+            from components.java
+        }
+    }
+}
+
+dependencies {
+    implementation "org.slf4j:slf4j-api:1.7.30"
+    testImplementation "org.slf4j:slf4j-simple:1.7.30"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.6.2"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:5.6.2"
+}
