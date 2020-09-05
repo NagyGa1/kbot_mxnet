@@ -13,13 +13,13 @@ public class MXNetwork implements Closeable {
 	static {
 		System.loadLibrary("kbot_mxnet");
 		nativeInit();
-		final String kbot_native_version = kbot_native_version();
-		final String kbot_native_compiled_version = "1.0.0";
-		LOG.info("KBOT_NATIVE: " + kbot_native_version);
+		final String kbot_mxnet_version = kbot_mxnet_version();
+		final String kbot_mxnet_compiled_version = "1.0.0";
+		LOG.info("KBOT_MXNET: " + kbot_mxnet_version);
 		LOG.info("MXNET: " + mxnet_version());
-		if (!kbot_native_version.equals(kbot_native_compiled_version)) {
-			final String msg = "KBOT_NATIVE compiled version is " + kbot_native_compiled_version +
-					", found " + kbot_native_version;
+		if (!kbot_mxnet_version.equals(kbot_mxnet_compiled_version)) {
+			final String msg = "KBOT_MXNET compiled version is " + kbot_mxnet_compiled_version +
+					", found " + kbot_mxnet_version;
 			LOG.warn(msg);
 		}
 	}
@@ -76,7 +76,7 @@ public class MXNetwork implements Closeable {
 
 	static private native void nativeInit();
 
-	static private native String kbot_native_version();
+	static private native String kbot_mxnet_version();
 
 	static private native String mxnet_version();
 

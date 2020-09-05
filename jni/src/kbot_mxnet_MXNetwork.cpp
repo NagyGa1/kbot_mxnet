@@ -24,7 +24,7 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_nativeInit
 
 }
 
-JNIEXPORT jstring JNICALL Java_kbot_mxnet_MXNetwork_kbot_1native_1version
+JNIEXPORT jstring JNICALL Java_kbot_mxnet_MXNetwork_kbot_1mxnet_1version
         (JNIEnv *env, jclass) {
     std::stringstream s;
     s << KBOT_NATIVE_MAJOR << "." << KBOT_NATIVE_MINOR << "." << KBOT_NATIVE_PATCH;

@@ -17,10 +17,10 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_nativeInit
 
 /*
  * Class:     kbot_mxnet_MXNetwork
- * Method:    kbot_native_version
+ * Method:    kbot_mxnet_version
  * Signature: ()Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_kbot_mxnet_MXNetwork_kbot_1native_1version
+JNIEXPORT jstring JNICALL Java_kbot_mxnet_MXNetwork_kbot_1mxnet_1version
   (JNIEnv *, jclass);
 
 /*

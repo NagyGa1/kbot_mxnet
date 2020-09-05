@@ -42,7 +42,7 @@ sudo make install
 
 Places itself to `/usr/lib/jni` where java can pick it up without any other magic.
 
-Uninstall kbot_native (not provided for mxnet)
+Uninstall kbot_mxnet (not provided for mxnet)
 ```shell script
 sudo make uninstall
 ```
