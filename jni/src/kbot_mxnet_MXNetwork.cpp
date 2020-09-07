@@ -282,6 +282,30 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit1D
     NDArray::WaitAll();
 }
 
+JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit1D_1mb
+        (JNIEnv *env, jobject obj, jobjectArray inputs, jfloatArray outputs, jint batch_size) {
+    auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
+
+    auto inputs_len = env->GetArrayLength(inputs);
+
+    for (int start = 0; start < inputs_len; start += batch_size) {
+        auto elements_to_send = std::min(inputs_len - start, batch_size);
+
+        net->batch_size_if_needed(elements_to_send);
+
+        copyToNDArray(env, inputs, net->inputs(), start, elements_to_send);
+        if (env->ExceptionCheck()) return;
+
+        env->GetFloatArrayRegion(outputs, start, elements_to_send, (float *) net->outputs().GetData()); // CPU only
+        if (env->ExceptionCheck()) return;
+
+        net->inputs().WaitToRead();
+        net->outputs().WaitToRead();
+
+        net->fit();
+    }
+}
+
 JNIEXPORT jobjectArray JNICALL Java_kbot_mxnet_MXNetwork_predict2D_1m
         (JNIEnv *env, jobject obj, jobjectArray inputs) {
 
