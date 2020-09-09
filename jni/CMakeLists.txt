@@ -28,6 +28,9 @@ target_link_libraries(mxnet_test_train1D kbot_mxnet)
 add_executable(mxnet_test_train2D src/mxnet_test_train2D.cpp)
 target_link_libraries(mxnet_test_train2D kbot_mxnet)
 
+add_executable(mxnet_test_leaks src/mxnet_test_leaks.cpp)
+target_link_libraries(mxnet_test_leaks kbot_mxnet)
+
 # installs to /usr/lib/jni where java picks it up by default
 install(TARGETS kbot_mxnet DESTINATION /usr/lib/jni)
 add_custom_target(uninstall COMMAND rm /usr/lib/jni/libkbot_mxnet.so)

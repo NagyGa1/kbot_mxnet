@@ -42,8 +42,10 @@ MXNetwork::MXNetwork(
         throw std::runtime_error("Unknown output type: " + output_type);
     }
 
-    input_size(1, inputs);
-    output_size(1, outputs);
+    // initialize input and output arrays with batch size = 1
+    args["input"] = NDArray(Shape(1, inputs), ctx);
+    if (outputs == 1) args["output"] = NDArray(Shape(1), ctx);
+    else args["output"] = NDArray(Shape(1, outputs), ctx);
 
     // Let MXNet infer shapes other parameters such as weights
     net.InferArgsMap(ctx, &args, args);
@@ -68,17 +70,11 @@ MXNetwork::MXNetwork(
 #endif
         opt->SetParam(opt_param.first, opt_param.second);
     }
-
-    // Create executor by binding parameters to the model
-    exec = net.SimpleBind(ctx, args);
-    arg_names = net.ListArguments();
 }
 
 MXNetwork::MXNetwork(const std::string &fname, const Context ctx) : ctx{ctx} {
     net = Symbol::Load(fname + ".json");
     NDArray::Load(fname + ".params", nullptr, &args);
-    // Create executor by binding parameters to the model
-    exec = net.SimpleBind(ctx, args);
 }
 
 MXNetwork::MXNetwork(const MXNetwork &other) : ctx{other.ctx} {
@@ -87,52 +83,59 @@ MXNetwork::MXNetwork(const MXNetwork &other) : ctx{other.ctx} {
         arg.second.WaitToRead();
         this->args[arg.first] = arg.second.Copy(ctx);
     }
-
-    // Create executor by binding parameters to the model
-    exec = net.SimpleBind(ctx, args);
 }
 
 MXNetwork::~MXNetwork() {
     delete opt;
-    delete exec;
+    for (auto exec : executors_for_batch_sizes) {
+        delete exec.second;
+    }
 }
 
 void MXNetwork::fit(const NDArray &input, const NDArray &output) {
-    auto batch_sent = input.GetShape()[0];
+    auto batch_size = input.GetShape().at(0);
+    auto exec = exec_for_batch_size(batch_size);
 
-    batch_size_if_needed(batch_sent);
+    auto exec_in = &exec->arg_arrays.front();
+    auto exec_out = &exec->arg_arrays.back();
 
     // Set data and label
     input.WaitToRead();
-    inputs().WaitToWrite();
-    input.CopyTo(&inputs());
+    exec_in->WaitToWrite();
+    input.CopyTo(exec_in);
 
     output.WaitToRead();
-    outputs().WaitToWrite();
-    output.CopyTo(&outputs());
+    exec_out->WaitToWrite();
+    output.CopyTo(exec_out);
 
-    inputs().WaitToRead();
-    outputs().WaitToRead();
+    exec_in->WaitToRead();
+    exec_out->WaitToRead();
 
-    fit();
+    fit(exec);
 }
 
-void MXNetwork::fit() {
+void MXNetwork::fit(mxnet::cpp::Executor *exec) {
     // Compute gradients
     exec->Forward(true);
     exec->Backward();
-    // Update parameters
-    for (size_t i = 0; i < arg_names.size(); ++i) {
-        if (arg_names[i] == "input" || arg_names[i] == "output") continue;
+
+    // Update parameters. Skipping first and lasts as these should be input the and output.
+    for (size_t i = 1; i < exec->arg_arrays.size() - 1; ++i) {
         opt->Update(i, exec->arg_arrays[i], exec->grad_arrays[i]);
     }
 }
 
 mxnet::cpp::NDArray *MXNetwork::predict(const NDArray &input) {
+    auto batch_size = input.GetShape()[0];
+    auto exec = exec_for_batch_size(batch_size);
+
+    auto exec_in = &exec->arg_arrays.front();
+
     input.WaitToRead();
-    inputs().WaitToWrite();
-    input.CopyTo(&inputs());
-    inputs().WaitToRead();
+    exec_in->WaitToWrite();
+    input.CopyTo(exec_in);
+    exec_in->WaitToRead();
+
     // Forward pass is enough as no gradient is needed when evaluating
     exec->Forward(false);
     exec->outputs[0].WaitToRead();
@@ -140,62 +143,47 @@ mxnet::cpp::NDArray *MXNetwork::predict(const NDArray &input) {
 }
 
 void MXNetwork::save(const std::string &fname) {
-    for(const auto& arg : args) arg.second.WaitToRead();
+    for (const auto &arg : args) arg.second.WaitToRead();
 
-    auto args_to_save = args;
-    args_to_save["input"] = NDArray(Shape(1, input_width()), ctx);
-    auto output_w = output_width();
-    if (output_w == 1) args_to_save["output"] = NDArray(Shape(1), ctx);
-    else args_to_save["output"] = NDArray(Shape(1, output_w), ctx);
-    NDArray::Save(fname + ".params", args_to_save);
+    // always save the batch size = 1 arrays, which is args.
+    NDArray::Save(fname + ".params", args);
     net.Save(fname + ".json");
 }
 
-void MXNetwork::batch_size(int new_batch_size) {
+Executor *MXNetwork::exec_for_batch_size(int batch_size) {
+    auto exec = executors_for_batch_sizes.find(batch_size);
 
-    input_size(new_batch_size, input_width());
-    output_size(new_batch_size, output_width());
-
-    // Create executor by binding parameters to the model
-    delete exec;
-    exec = net.SimpleBind(ctx, args);
-}
-
-void MXNetwork::batch_size_if_needed(int new_batch_size) {
-    if (new_batch_size != batch_size()) {
+    if (exec == executors_for_batch_sizes.end()) {
 #ifndef NDEBUG
-        std::cout << "New batch size: " << new_batch_size << std::endl;
+        std::cout << "New executor for batch size: " << batch_size << std::endl;
 #endif
-        batch_size(new_batch_size);
-    }
-}
 
-int MXNetwork::batch_size() {
-    return inputs().GetShape()[0];
-}
+        auto input_shape = args.at("input").GetShape();
+        auto output_shape = args.at("output").GetShape();
 
-int MXNetwork::input_width() {
-    return inputs().GetShape()[1];
-}
+        CHECK(input_shape.size() == 2);
+        CHECK(output_shape.size() == 1 || output_shape.size() == 2);
 
-void MXNetwork::input_size(const int height, const int width) {
-    inputs().WaitToWrite();
-    inputs() = NDArray(Shape(height, width), ctx);
-}
+        auto args_for_new_batch_size = args;
+        args_for_new_batch_size.at("input") = NDArray(Shape(batch_size, input_shape.at(1)), ctx);
 
-int MXNetwork::output_width() {
-    auto output_shape = outputs().GetShape();
-    if (output_shape.size() == 1) {
-        return 1;
+        if (output_shape.size() == 1) {
+            args_for_new_batch_size.at("output") = NDArray(Shape(batch_size), ctx, false);
+        } else {
+            args_for_new_batch_size.at("output") = NDArray(Shape(batch_size, output_shape.at(1)), ctx, false);
+        }
+        auto new_exec = net.SimpleBind(ctx, args_for_new_batch_size);
+
+        // check if first is input last is output, assumed later in code.
+
+        CHECK(new_exec->arg_arrays.front().GetData() == args_for_new_batch_size["input"].GetData());
+        CHECK(new_exec->arg_arrays.back().GetData() == args_for_new_batch_size["output"].GetData());
+
+        executors_for_batch_sizes[batch_size] = new_exec;
+        return new_exec;
     } else {
-        return output_shape.back();
+        return exec->second;
     }
-}
-
-void MXNetwork::output_size(const int height, const int width) {
-    outputs().WaitToWrite();
-    if (width == 1) outputs() = NDArray(Shape(height), ctx);
-    else outputs() = NDArray(Shape(height, width), ctx);
 }
 
 [[maybe_unused]] void MXNetwork::print_args() {
@@ -213,25 +201,18 @@ void MXNetwork::output_size(const int height, const int width) {
 
 std::string MXNetwork::to_string() {
     std::stringstream s;
-    s << "MXNetwork " << this << " [" << batch_size() << ", " << input_width() << "]";
+    s << "MXNetwork " << this << " [batch, " << args.at("input").GetShape().at(1) << "]";
     s << " [";
     bool first = true;
-    for (const auto &arg_name : arg_names) {
+    for (const auto& arg : args) {
         if (!first) s << ", ";
         first = false;
-        s << arg_name << "/" << args[arg_name].GetShape()[0];
+        s << arg.first << "/" << arg.second.GetShape().at(0);
     }
-    s << "] => [" << batch_size() << "]";
+    s << "] => [batch]";
     return s.str();
 }
 
-mxnet::cpp::NDArray &MXNetwork::inputs() {
-    return args["input"];
-}
-
-mxnet::cpp::NDArray &MXNetwork::outputs() {
-    return args["output"];
-}
 
 
 

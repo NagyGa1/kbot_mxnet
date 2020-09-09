@@ -198,22 +198,21 @@ JNIEXPORT jfloatArray JNICALL Java_kbot_mxnet_MXNetwork_predict1D_1m
         (JNIEnv *env, jobject obj, jobjectArray inputs) {
 
     auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
+    auto batch_size = env->GetArrayLength(inputs);
+    auto exec = net->exec_for_batch_size(batch_size);
 
-    auto inputsLen = env->GetArrayLength(inputs);
-    net->batch_size_if_needed(inputsLen);
-    copyToNDArray(env, inputs, net->inputs(), 0, env->GetArrayLength(inputs));
+    copyToNDArray(env, inputs, exec->arg_arrays.front(), 0, batch_size);
     if (env->ExceptionCheck()) return nullptr;
 
-    net->inputs().WaitToRead();
+    exec->arg_arrays.front().WaitToRead();
 
-    net->exec->Forward(false);
+    exec->Forward(false);
 
-    net->exec->outputs[0].WaitToRead();
+    exec->outputs[0].WaitToRead();
 
-    auto input_rows = env->GetArrayLength(inputs);
-    jfloatArray ret = env->NewFloatArray(input_rows);
+    jfloatArray ret = env->NewFloatArray(batch_size);
     // this kind of copy only works on CPU.
-    env->SetFloatArrayRegion(ret, 0, input_rows, net->exec->outputs[0].GetData());
+    env->SetFloatArrayRegion(ret, 0, batch_size, exec->outputs[0].GetData());
     return ret;
 }
 
@@ -222,9 +221,9 @@ JNIEXPORT jfloat JNICALL Java_kbot_mxnet_MXNetwork_predict1D
     auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
     auto cols = env->GetArrayLength(input);
 
-    net->batch_size_if_needed(1);
+    auto exec = net->exec_for_batch_size(1);
 
-    NDArray *net_inputs = &net->inputs();
+    NDArray *net_inputs = &exec->arg_arrays.front();
 
     auto shape = net_inputs->GetShape();
     if (shape.size() != 2 || shape[0] != 1 || shape[1] != cols) {
@@ -239,8 +238,8 @@ JNIEXPORT jfloat JNICALL Java_kbot_mxnet_MXNetwork_predict1D
     env->GetFloatArrayRegion(input, 0, cols, (jfloat *) net_inputs->GetData());
     net_inputs->WaitToRead();
 
-    net->exec->Forward(false);
-    NDArray *outs = &net->exec->outputs[0];
+    exec->Forward(false);
+    NDArray *outs = &exec->outputs[0];
     auto out_cols = outs->GetShape()[1];
 
     if (out_cols != 1) {
@@ -260,26 +259,29 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit1D
         (JNIEnv *env, jobject obj, jobjectArray inputs, jfloatArray outputs) {
     auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
 
-    auto inputsLen = env->GetArrayLength(inputs);
-    net->batch_size_if_needed(inputsLen);
-    copyToNDArray(env, inputs, net->inputs(), 0, env->GetArrayLength(inputs));
+    auto batch_size = env->GetArrayLength(inputs);
+    auto exec = net->exec_for_batch_size(batch_size);
+
+    NDArray *exec_in = &exec->arg_arrays.front();
+
+    copyToNDArray(env, inputs, *exec_in, 0, batch_size);
     if (env->ExceptionCheck()) return;
 
-    net->outputs().WaitToWrite();
+    NDArray *exec_out = &exec->arg_arrays.back();
 
-    auto outputsLen = env->GetArrayLength(outputs);
-//    NDArray tmp{Shape(outputsLen), mxnet::cpp::Context::cpu(), false};
-//    env->GetFloatArrayRegion(outputs, 0, outputsLen, (float *) tmp.GetData());
+    exec_out->WaitToWrite();
+
+    auto outputs_len = env->GetArrayLength(outputs);
+//    NDArray tmp{Shape(outputs_len), mxnet::cpp::Context::cpu(), false};
+//    env->GetFloatArrayRegion(outputs, 0, outputs_len, (float *) tmp.GetData());
 //    tmp.CopyTo(&net->outputs());
-    env->GetFloatArrayRegion(outputs, 0, outputsLen, (float *) net->outputs().GetData()); // CPU only
+    env->GetFloatArrayRegion(outputs, 0, outputs_len, (float *) exec_out->GetData()); // CPU only
     if (env->ExceptionCheck()) return;
 
-    net->inputs().WaitToRead();
-    net->outputs().WaitToRead();
+    exec_in->WaitToRead();
+    exec_out->WaitToRead();
 
-    net->fit();
-
-    NDArray::WaitAll();
+    net->fit(exec);
 }
 
 JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit1D_1mb
@@ -291,18 +293,19 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit1D_1mb
     for (int start = 0; start < inputs_len; start += batch_size) {
         auto elements_to_send = std::min(inputs_len - start, batch_size);
 
-        net->batch_size_if_needed(elements_to_send);
+        auto exec = net->exec_for_batch_size(elements_to_send);
 
-        copyToNDArray(env, inputs, net->inputs(), start, elements_to_send);
+        copyToNDArray(env, inputs, exec->arg_arrays.front(), start, elements_to_send);
         if (env->ExceptionCheck()) return;
 
-        env->GetFloatArrayRegion(outputs, start, elements_to_send, (float *) net->outputs().GetData()); // CPU only
+        env->GetFloatArrayRegion(outputs, start, elements_to_send,
+                                 (float *) exec->arg_arrays.back().GetData()); // CPU only
         if (env->ExceptionCheck()) return;
 
-        net->inputs().WaitToRead();
-        net->outputs().WaitToRead();
+        exec->arg_arrays.front().WaitToRead();
+        exec->arg_arrays.back().WaitToRead();
 
-        net->fit();
+        net->fit(exec);
     }
 }
 
@@ -311,23 +314,25 @@ JNIEXPORT jobjectArray JNICALL Java_kbot_mxnet_MXNetwork_predict2D_1m
 
     auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
 
-    auto input_rows = env->GetArrayLength(inputs);
-    net->batch_size_if_needed(input_rows);
-    copyToNDArray(env, inputs, net->inputs(), 0, env->GetArrayLength(inputs));
+    auto batch_size = env->GetArrayLength(inputs);
+    auto exec = net->exec_for_batch_size(batch_size);
+
+    copyToNDArray(env, inputs, exec->arg_arrays.front(), 0, batch_size);
     if (env->ExceptionCheck()) return nullptr;
-    net->inputs().WaitToRead();
 
-    net->exec->Forward(false);
+    exec->arg_arrays.front().WaitToRead();
 
-    net->exec->outputs[0].WaitToRead();
+    exec->Forward(false);
 
-    auto output_shape = net->exec->outputs[0].GetShape();
+    exec->outputs[0].WaitToRead();
+
+    auto output_shape = exec->outputs[0].GetShape();
     if (output_shape.size() != 2) {
         throwRTE(env, "output_shape.size() != 2");
         return nullptr;
     }
 
-    auto outs = &net->exec->outputs[0];
+    auto outs = &exec->outputs[0];
     jfloatArray fas[output_shape[0]];
     for (int row = 0; row < output_shape[0]; row++) {
 
@@ -340,7 +345,7 @@ JNIEXPORT jobjectArray JNICALL Java_kbot_mxnet_MXNetwork_predict2D_1m
         if (env->ExceptionCheck()) return nullptr;
     }
 
-    jobjectArray ret = env->NewObjectArray(input_rows, env->GetObjectClass(fas[0]), nullptr);
+    jobjectArray ret = env->NewObjectArray(batch_size, env->GetObjectClass(fas[0]), nullptr);
     if (env->ExceptionCheck()) return nullptr;
 
     for (int row = 0; row < output_shape[0]; row++) {
@@ -356,9 +361,9 @@ JNIEXPORT jfloatArray JNICALL Java_kbot_mxnet_MXNetwork_predict2D
     auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
     auto cols = env->GetArrayLength(input);
 
-    net->batch_size_if_needed(1);
+    auto exec = net->exec_for_batch_size(1);
 
-    NDArray *net_inputs = &net->inputs();
+    NDArray *net_inputs = &exec->arg_arrays.front();
 
     auto shape = net_inputs->GetShape();
     if (shape.size() != 2 || shape[0] != 1 || shape[1] != cols) {
@@ -373,8 +378,8 @@ JNIEXPORT jfloatArray JNICALL Java_kbot_mxnet_MXNetwork_predict2D
     env->GetFloatArrayRegion(input, 0, cols, (jfloat *) net_inputs->GetData());
     net_inputs->WaitToRead();
 
-    net->exec->Forward(false);
-    NDArray *outs = &net->exec->outputs[0];
+    exec->Forward(false);
+    NDArray *outs = &exec->outputs[0];
     auto out_cols = outs->GetShape()[1];
 
     jfloatArray ret = env->NewFloatArray(out_cols);
@@ -390,19 +395,19 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit2D
         (JNIEnv *env, jobject obj, jobjectArray inputs, jobjectArray outputs) {
     auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
 
-    auto inputs_len = env->GetArrayLength(inputs);
-    net->batch_size_if_needed(inputs_len);
+    auto batch_size = env->GetArrayLength(inputs);
+    auto exec = net->exec_for_batch_size(batch_size);
 
-    copyToNDArray(env, inputs, net->inputs(), 0, env->GetArrayLength(inputs));
+    copyToNDArray(env, inputs, exec->arg_arrays.front(), 0, env->GetArrayLength(inputs));
     if (env->ExceptionCheck()) return;
 
-    copyToNDArray(env, outputs, net->outputs(), 0, env->GetArrayLength(outputs));
+    copyToNDArray(env, outputs, exec->arg_arrays.back(), 0, env->GetArrayLength(outputs));
     if (env->ExceptionCheck()) return;
 
-    net->inputs().WaitToRead();
-    net->outputs().WaitToRead();
+    exec->arg_arrays.front().WaitToRead();
+    exec->arg_arrays.back().WaitToRead();
 
-    net->fit();
+    net->fit(exec);
 }
 
 JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit2D_1mb
@@ -414,18 +419,18 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_fit2D_1mb
     for (int start = 0; start < inputs_len; start += batch_size) {
         auto elements_to_send = std::min(inputs_len - start, batch_size);
 
-        net->batch_size_if_needed(elements_to_send);
+        auto exec = net->exec_for_batch_size(elements_to_send);
 
-        copyToNDArray(env, inputs, net->inputs(), start, elements_to_send);
+        copyToNDArray(env, inputs, exec->arg_arrays.front(), start, elements_to_send);
         if (env->ExceptionCheck()) return;
 
-        copyToNDArray(env, outputs, net->outputs(), start, elements_to_send);
+        copyToNDArray(env, outputs, exec->arg_arrays.back(), start, elements_to_send);
         if (env->ExceptionCheck()) return;
 
-        net->inputs().WaitToRead();
-        net->outputs().WaitToRead();
+        exec->arg_arrays.front().WaitToRead();
+        exec->arg_arrays.front().WaitToRead();
 
-        net->fit();
+        net->fit(exec);
     }
 
 }

@@ -56,7 +56,7 @@ public:
     /**
      * Fit assuming input and output was updated.
      */
-    void fit();
+    void fit(mxnet::cpp::Executor* exec);
 
     /**
      * Assumes proper batch size set previously, matching input!
@@ -77,35 +77,22 @@ public:
      */
     void save(const std::string &fname);
 
-    int input_width();
-
-    int output_width();
-
-    int batch_size();
-
-    void batch_size(int new_batch_size);
-
-    void batch_size_if_needed(int new_batch_size);
+    mxnet::cpp::Executor* exec_for_batch_size(int batch_size);
 
     [[maybe_unused]] void print_args();
 
     std::string to_string();
 
-    mxnet::cpp::NDArray &inputs();
-
-    mxnet::cpp::NDArray &outputs();
-
     mxnet::cpp::Context ctx;
-    mxnet::cpp::Executor *exec;
+
 private:
-    void input_size(int height, int width);
-
-    void output_size(int height, int width);
-
     mxnet::cpp::Symbol net;
+    /**
+     * Arrays for batch size = 1.
+     */
     std::map<std::string, mxnet::cpp::NDArray> args;
     mxnet::cpp::Optimizer *opt{};
-    std::vector<std::string> arg_names;
+    std::map<int, mxnet::cpp::Executor*> executors_for_batch_sizes;
 };
 
 
