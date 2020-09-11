@@ -2,7 +2,6 @@
 #include "MXNetwork.h"
 #include <mxnet-cpp/MxNetCpp.h>
 #include <mxnet/base.h>
-#include "/home/nagygabor/git/mxnet/cpp-package/example/utils.h"
 
 using namespace mxnet::cpp;
 
