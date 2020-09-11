@@ -76,9 +76,9 @@ public class MXNetwork implements Closeable {
 
 	static private native void nativeInit();
 
-	static private native String kbot_mxnet_version();
+	static public native String kbot_mxnet_version();
 
-	static private native String mxnet_version();
+	static public native String mxnet_version();
 
 	/**
 	 * @param inputs               number of input features (columns of input array)
