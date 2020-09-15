@@ -34,7 +34,9 @@ JNIEXPORT jstring JNICALL Java_kbot_mxnet_MXNetwork_kbot_1mxnet_1version
 JNIEXPORT jstring JNICALL Java_kbot_mxnet_MXNetwork_mxnet_1version
         (JNIEnv *env, jclass) {
     std::stringstream s;
-    s << MXNET_MAJOR << "." << MXNET_MINOR << "." << MXNET_PATCH;
+    int mxnet_version;
+    MXGetVersion(&mxnet_version);
+    s << mxnet_version;
     return env->NewStringUTF(s.str().c_str());
 }
 

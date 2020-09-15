@@ -14,7 +14,7 @@ public class MXNetwork implements Closeable {
 		System.loadLibrary("kbot_mxnet");
 		nativeInit();
 		final String kbot_mxnet_version = kbot_mxnet_version();
-		final String kbot_mxnet_compiled_version = "1.0.0";
+		final String kbot_mxnet_compiled_version = "1.0.1";
 		LOG.info("KBOT_MXNET: " + kbot_mxnet_version);
 		LOG.info("MXNET: " + mxnet_version());
 		if (!kbot_mxnet_version.equals(kbot_mxnet_compiled_version)) {
