@@ -7,7 +7,7 @@ MXNetwork java class wrapping implemented with MXNet via JNI / C++.
 cd ~/git
 git clone https://github.com/apache/incubator-mxnet mxnet
 cd mxnet
-git checkout 1.7.0
+git checkout v1.7.x
 git submodule update --init --recursive
 ```
 
@@ -28,6 +28,14 @@ cmake -DUSE_CUDA=0 -DUSE_CUDNN=0 -DUSE_MKLDNN=1 -DUSE_CPP_PACKAGE=1 -DCMAKE_BUIL
 ninja -j 8
 sudo ninja install
 sudo ldconfig
+```
+
+## Alternative: MKL
+
+On Ubuntu 20.04:
+```shell script
+sudo apt install libmkl-dev
+cmake -DUSE_CUDA=0 -DUSE_CUDNN=0 -DUSE_MKLDNN=1 -DUSE_CPP_PACKAGE=1 -DCMAKE_BUILD_TYPE=Release -DMKL_INCLUDE_DIR=/usr/include/mkl -GNinja ..
 ```
 
 ## Compile kbot_mxnet jni
