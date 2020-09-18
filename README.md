@@ -48,7 +48,7 @@ ninja -j 8
 sudo ninja install
 ```
 
-Places itself to `/usr/lib/jni` where java can pick it up without any other magic.
+Places itself to `/usr/java/packages/lib` where java can pick it up without any other magic.
 
 Uninstall kbot_mxnet (not provided for mxnet)
 ```shell script
