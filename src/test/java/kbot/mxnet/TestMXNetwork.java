@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TestMXNetwork {
 
 	@Test
-	public void trainPredict1D() throws IOException {
+	public void trainPredict1D() {
 		final MXNetwork network = new MXNetwork(2, new int[]{ 30, 1 },
 				"Relu", "LinearRegression", "adam",
 				Map.of("lr", 0.01f));
@@ -39,12 +39,11 @@ public class TestMXNetwork {
 				System.out.printf("#%d MAE: %f%n", epoch, mae);
 			}
 		}
-		network.close();
 		assertEquals(0.023809558f, mae, 0.001f);
 	}
 
 	@Test
-	public void trainPredict2D() throws IOException {
+	public void trainPredict2D() {
 		final MXNetwork network = new MXNetwork(2, new int[]{ 30, 2 },
 				"Relu", "LinearRegression", "adam",
 				Map.of("lr", 0.01f));
@@ -79,7 +78,6 @@ public class TestMXNetwork {
 				System.out.printf("#%d MAE: %f%n", epoch, mae);
 			}
 		}
-		network.close();
 		assertEquals(0.029863559f, mae, 0.006f);
 	}
 }

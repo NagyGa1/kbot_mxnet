@@ -50,10 +50,10 @@ JNIEXPORT jlong JNICALL Java_kbot_mxnet_MXNetwork_constructNetLoad
 /*
  * Class:     kbot_mxnet_MXNetwork
  * Method:    disposeNet
- * Signature: ()V
+ * Signature: (J)V
  */
 JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_disposeNet
-  (JNIEnv *, jobject);
+  (JNIEnv *, jclass, jlong);
 
 /*
  * Class:     kbot_mxnet_MXNetwork

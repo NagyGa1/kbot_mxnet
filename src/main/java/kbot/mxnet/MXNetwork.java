@@ -3,18 +3,19 @@ package kbot.mxnet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
+import java.lang.ref.Cleaner;
 import java.util.Map;
 
-public class MXNetwork implements Closeable {
+public class MXNetwork {
 
 	private static final Logger LOG = LoggerFactory.getLogger(MXNetwork.class);
+	private static final Cleaner cleaner = Cleaner.create();
 
 	static {
 		System.loadLibrary("kbot_mxnet");
 		nativeInit();
 		final String kbot_mxnet_version = kbot_mxnet_version();
-		final String kbot_mxnet_compiled_version = "1.0.1";
+		final String kbot_mxnet_compiled_version = "1.0.2";
 		LOG.info("KBOT_MXNET: " + kbot_mxnet_version);
 		LOG.info("MXNET: " + mxnet_version());
 		if (!kbot_mxnet_version.equals(kbot_mxnet_compiled_version)) {
@@ -44,30 +45,21 @@ public class MXNetwork implements Closeable {
 			idx++;
 		}
 
-		net = constructNet(inputs, hiddenLayers, activationType, outputType, optimizerType,
+		this.net = constructNet(inputs, hiddenLayers, activationType, outputType, optimizerType,
 				optimizerParamNames, optimizerParamValues,
 				MXContext.CPU.ndarrayDeviceTypeId, 0);
+
+		cleaner.register(this, new MXNetworkDispose(this.net));
 	}
 
 	public MXNetwork(String fileNamePrefix) {
 		this.net = constructNetLoad(fileNamePrefix, MXContext.CPU.ndarrayDeviceTypeId, 0);
+		cleaner.register(this, new MXNetworkDispose(this.net));
 	}
 
 	public MXNetwork(MXNetwork other) {
 		this.net = other.cloneNet();
-	}
-
-	@Override
-	public void close() {
-		if (net != 0) {
-			disposeNet(); // implies net = 0
-			assert net == 0;
-		}
-	}
-
-	@Override
-	protected void finalize() {
-		if (net != 0) throw new RuntimeException("Memory leak, use close before releasing object.");
+		cleaner.register(this, new MXNetworkDispose(this.net));
 	}
 
 	public MXNetwork copy() {
@@ -108,7 +100,7 @@ public class MXNetwork implements Closeable {
 										 final int contextDeviceId
 	);
 
-	private native void disposeNet();
+	static protected native void disposeNet(final long net);
 
 	private native long cloneNet();
 

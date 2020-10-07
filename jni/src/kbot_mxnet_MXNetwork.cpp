@@ -128,13 +128,12 @@ JNIEXPORT jlong JNICALL Java_kbot_mxnet_MXNetwork_constructNetLoad
 }
 
 JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_disposeNet
-        (JNIEnv *env, jobject obj) {
-    auto net = (MXNetwork *) env->GetLongField(obj, MXNetwork_net);
+        (JNIEnv *env, jclass, jlong netPtr) {
+    auto net = (MXNetwork *) netPtr;
 #ifndef NDEBUG
     std::cout << "destructNet " << net->to_string() << std::endl;
 #endif
     delete net;
-    env->SetLongField(obj, MXNetwork_net, 0);
 }
 
 JNIEXPORT jlong JNICALL Java_kbot_mxnet_MXNetwork_cloneNet
