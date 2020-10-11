@@ -12,7 +12,7 @@ repositories {
 
 test {
     useJUnitPlatform()
-    systemProperty "java.library.path", file("${projectDir}/jni/cmake-build-debug").absolutePath
+    systemProperty "java.library.path", file("${projectDir}/jni/cmake-build-release").absolutePath
     environment "MXNET_SUBGRAPH_VERBOSE", "0"
 }
 
