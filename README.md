@@ -30,6 +30,22 @@ sudo ninja install
 sudo ldconfig
 ```
 
+### Fedora 33
+
+After all other dependencies, need these in addition:
+```shell script
+sudo dnf install gcc-c++ cspan
+```
+
+Needs `/usr/local/lib`, `/usr/local/lib64` on ldconfig path:
+```shell script
+sudo tee /etc/ld.so.conf.d/local.conf <<EOF
+/usr/local/lib
+/usr/local/lib64
+EOF
+sudo ldconfig
+```
+
 ## Alternative: MKL
 
 On Ubuntu 20.04:
