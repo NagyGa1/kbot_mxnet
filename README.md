@@ -34,7 +34,7 @@ sudo ldconfig
 
 After all other dependencies, need these in addition:
 ```shell script
-sudo dnf install gcc-c++ cspan
+sudo dnf install gcc-c++ perl-FindBin
 ```
 
 Needs `/usr/local/lib`, `/usr/local/lib64` on ldconfig path:
