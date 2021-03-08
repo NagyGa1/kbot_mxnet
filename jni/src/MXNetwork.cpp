@@ -50,8 +50,8 @@ MXNetwork::MXNetwork(
     // Let MXNet infer shapes other parameters such as weights
     net.InferArgsMap(ctx, &args, args);
 
-    // Initialize all parameters with uniform distribution U(-0.01, 0.01)
-    auto initializer = Uniform(0.01);
+    // Initialize all parameters
+    auto initializer = Xavier();
     for (auto &arg : args) {
         // arg.first is parameter name, and arg.second is the value
         initializer(arg.first, &arg.second);
