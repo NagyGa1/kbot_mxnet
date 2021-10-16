@@ -7,7 +7,7 @@ MXNetwork java class wrapping implemented with MXNet via JNI / C++.
 cd ~/git
 git clone https://github.com/apache/incubator-mxnet mxnet
 cd mxnet
-git checkout v1.7.x
+git checkout v1.8.x
 git submodule update --init --recursive
 ```
 
@@ -16,17 +16,16 @@ If no python but there is python3 (default Ubuntu):
 sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 3
 ```
 
-Follow [https://mxnet.apache.org/versions/1.7/get_started/build_from_source](https://mxnet.apache.org/versions/1.7/get_started/build_from_source)
-```shell script
-sudo apt-get install -y build-essential git ninja-build ccache libopenblas-dev libopencv-dev cmake
-```
+Follow [https://mxnet.apache.org/get_started/build_from_source](https://mxnet.apache.org/get_started/build_from_source)
 
 ```shell script
+cp config/linux.cmake config.cmake
+--> edit the file to switch USE_CPP_PACKAGE ON
 mkdir build
 cd build
-cmake -DUSE_CUDA=0 -DUSE_CUDNN=0 -DUSE_MKLDNN=1 -DUSE_CPP_PACKAGE=1 -DCMAKE_BUILD_TYPE=Release -GNinja ..
-ninja -j 8
-sudo ninja install
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-O3 -march=native" -DCMAKE_CXX_FLAGS="-O3 -march=native" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+make -j 8
+sudo make install
 sudo ldconfig
 ```
 
@@ -59,9 +58,9 @@ cmake -DUSE_CUDA=0 -DUSE_CUDNN=0 -DUSE_MKLDNN=1 -DUSE_CPP_PACKAGE=1 -DCMAKE_BUIL
 cd kbot_mxnet/jni
 mkdir cmake-build-release
 cd cmake-build-release
-cmake -DCMAKE_BUILD_TYPE=Release -GNinja ..
-ninja -j 8
-sudo ninja install
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-O3 -march=native" -DCMAKE_CXX_FLAGS="-O3 -march=native" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+make -j 8
+sudo make install
 ```
 
 Places itself to `/usr/java/packages/lib` where java can pick it up without any other magic.
