@@ -19,6 +19,9 @@ JNIEXPORT void JNICALL Java_kbot_mxnet_MXNetwork_nativeInit
     std::cout << "nativeInit " << std::endl;
 #endif
 
+    // trying to trigger initialization here
+    auto opt = OptimizerRegistry::Find("sgd");
+
     MXNetwork_net = env->GetFieldID(clazz, "net", "J");
     if (env->ExceptionCheck()) return;
 
