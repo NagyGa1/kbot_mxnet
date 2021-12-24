@@ -7,7 +7,7 @@ MXNetwork java class wrapping implemented with MXNet via JNI / C++.
 cd ~/git
 git clone https://github.com/apache/incubator-mxnet mxnet
 cd mxnet
-git checkout v1.8.x
+git checkout v1.9.x
 git submodule update --init --recursive
 ```
 
